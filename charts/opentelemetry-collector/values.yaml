@@ -250,6 +250,8 @@ serviceAccount:
   # The name of the service account to use.
   # If not set and create is true, a name is generated using the fullname template
   name: ""
+  # Automatically mount a ServiceAccount's API credentials?
+  automountServiceAccountToken: true
 
 clusterRole:
   # Specifies whether a clusterRole should be created
@@ -399,7 +401,6 @@ schedulerName: ""
 # only used with deployment mode
 replicaCount: 1
 
-# only used with deployment mode
 revisionHistoryLimit: 10
 
 annotations: {}
@@ -606,6 +607,8 @@ autoscaling:
   behavior: {}
   targetCPUUtilizationPercentage: 80
   # targetMemoryUtilizationPercentage: 80
+  # Supply an array of custom metrics to be used for autoscaling. It includes externalMetrics, objectMetrics, and podsMetrics.
+  additionalMetrics: []
 
 rollout:
   rollingUpdate: {}
