@@ -6,8 +6,8 @@ metadata:
   name: example-cluster-stats
   namespace: default
   labels:
-    helm.sh/chart: opentelemetry-kube-stack-0.9.1
-    app.kubernetes.io/version: "0.129.1"
+    helm.sh/chart: opentelemetry-kube-stack-0.14.13
+    app.kubernetes.io/version: "0.144.0"
     app.kubernetes.io/managed-by: Helm
     release: "example"        
 spec:
@@ -25,17 +25,8 @@ spec:
         extract:
           labels:
           - from: pod
-            key: app.kubernetes.io/name
-            tag_name: service.name
-          - from: pod
-            key: k8s-app
-            tag_name: service.name
-          - from: pod
             key: app.kubernetes.io/instance
             tag_name: k8s.app.instance
-          - from: pod
-            key: app.kubernetes.io/version
-            tag_name: service.version
           - from: pod
             key: app.kubernetes.io/component
             tag_name: k8s.app.component
@@ -59,6 +50,11 @@ spec:
           - container.image.tag
           - container.image.name
           - k8s.cluster.uid
+          - service.namespace
+          - service.name
+          - service.version
+          - service.instance.id
+          otel_annotations: true
         passthrough: false
         pod_association:
         - sources:
@@ -140,6 +136,10 @@ spec:
   securityContext:
     {}
   env:
+  - name: K8S_NODE_NAME 
+    valueFrom:
+      fieldRef:
+        fieldPath: spec.nodeName
   - name: OTEL_K8S_NODE_NAME
     valueFrom:
       fieldRef:
@@ -163,6 +163,8 @@ spec:
       fieldRef:
         apiVersion: v1
         fieldPath: status.podIP
+  - name: OTEL_RESOURCE_ATTRIBUTES
+    value: "k8s.pod.name=$(OTEL_K8S_POD_NAME),k8s.namespace.name=$(OTEL_K8S_NAMESPACE),k8s.node.name=$(OTEL_K8S_NODE_NAME),host.name=$(OTEL_K8S_NODE_NAME),k8s.node.ip=$(OTEL_K8S_NODE_IP),k8s.pod.ip=$(OTEL_K8S_POD_IP),k8s.cluster.name=unknown_k8s_cluster"
 ---
 # Source: opentelemetry-kube-stack/templates/collector.yaml
 apiVersion: opentelemetry.io/v1beta1
@@ -171,8 +173,8 @@ metadata:
   name: example-daemon
   namespace: default
   labels:
-    helm.sh/chart: opentelemetry-kube-stack-0.9.1
-    app.kubernetes.io/version: "0.129.1"
+    helm.sh/chart: opentelemetry-kube-stack-0.14.13
+    app.kubernetes.io/version: "0.144.0"
     app.kubernetes.io/managed-by: Helm
     release: "example"        
 spec:
@@ -190,17 +192,8 @@ spec:
         extract:
           labels:
           - from: pod
-            key: app.kubernetes.io/name
-            tag_name: service.name
-          - from: pod
-            key: k8s-app
-            tag_name: service.name
-          - from: pod
             key: app.kubernetes.io/instance
             tag_name: k8s.app.instance
-          - from: pod
-            key: app.kubernetes.io/version
-            tag_name: service.version
           - from: pod
             key: app.kubernetes.io/component
             tag_name: k8s.app.component
@@ -224,6 +217,11 @@ spec:
           - container.image.tag
           - container.image.name
           - k8s.cluster.uid
+          - service.namespace
+          - service.name
+          - service.version
+          - service.instance.id
+          otel_annotations: true
         filter:
           node_from_env_var: OTEL_K8S_NODE_NAME
         passthrough: false
@@ -248,9 +246,15 @@ spec:
             name: k8s.namespace.name
         - sources:
           - from: connection
+      resource/hostname:
+        attributes:
+        - action: insert
+          from_attribute: k8s.node.name
+          key: host.name
       resourcedetection/env:
         detectors:
         - env
+        - k8snode
         override: false
         timeout: 2s
     receivers:
@@ -273,6 +277,8 @@ spec:
         scrapers:
           cpu:
             metrics:
+              system.cpu.logical.count:
+                enabled: true
               system.cpu.utilization:
                 enabled: true
           disk: {}
@@ -319,9 +325,19 @@ spec:
           load: {}
           memory:
             metrics:
+              system.memory.limit:
+                enabled: true
               system.memory.utilization:
                 enabled: true
           network: {}
+          paging:
+            metrics:
+              system.paging.usage:
+                enabled: true
+          system:
+            metrics:
+              system.uptime:
+                enabled: true
       kubeletstats:
         auth_type: serviceAccount
         collection_interval: 15s
@@ -536,6 +552,7 @@ spec:
           processors:
           - k8sattributes
           - resourcedetection/env
+          - resource/hostname
           - batch
           receivers:
           - otlp
@@ -546,6 +563,7 @@ spec:
           processors:
           - k8sattributes
           - resourcedetection/env
+          - resource/hostname
           - batch
           receivers:
           - prometheus
@@ -558,6 +576,7 @@ spec:
           processors:
           - k8sattributes
           - resourcedetection/env
+          - resource/hostname
           - batch
           receivers:
           - otlp
@@ -585,6 +604,10 @@ spec:
     readOnly: true
     mountPropagation: HostToContainer
   env:
+  - name: K8S_NODE_NAME 
+    valueFrom:
+      fieldRef:
+        fieldPath: spec.nodeName
   - name: OTEL_K8S_NODE_NAME
     valueFrom:
       fieldRef:
@@ -608,6 +631,8 @@ spec:
       fieldRef:
         apiVersion: v1
         fieldPath: status.podIP
+  - name: OTEL_RESOURCE_ATTRIBUTES
+    value: "k8s.pod.name=$(OTEL_K8S_POD_NAME),k8s.namespace.name=$(OTEL_K8S_NAMESPACE),k8s.node.name=$(OTEL_K8S_NODE_NAME),host.name=$(OTEL_K8S_NODE_NAME),k8s.node.ip=$(OTEL_K8S_NODE_IP),k8s.pod.ip=$(OTEL_K8S_POD_IP),k8s.cluster.name=unknown_k8s_cluster"
   
   volumes:
   - name: varlogpods

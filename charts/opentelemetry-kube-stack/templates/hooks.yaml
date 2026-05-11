@@ -62,6 +62,10 @@ spec:
       {{- else}}
       serviceAccountName: {{ .Values.cleanupJob.existingServiceAccount }}
       {{- end}}
+      {{- with .Values.cleanupJob.podSecurityContext }}
+      securityContext:
+{{- toYaml . | nindent 8 }}
+      {{- end }}
       containers:
       - name: delete-resources
         {{- if $.Values.cleanupJob.image.digest }}
@@ -69,10 +73,13 @@ spec:
         {{- else }}
         image: "{{ $.Values.cleanupJob.image.repository }}:{{ $.Values.cleanupJob.image.tag }}"
         {{- end }}
-        command:
-          - /bin/sh
-          - -c
-          - |
-            kubectl delete instrumentations,opampbridges,opentelemetrycollectors \
-              -l helm.sh/chart={{ include "opentelemetry-kube-stack.chart" . }}
+        {{- with $.Values.cleanupJob.securityContext }}
+        securityContext:
+{{- toYaml . | nindent 10 }}
+        {{- end }}
+        args:
+          - "delete"
+          - "instrumentations,opampbridges,opentelemetrycollectors"
+          - "-l"
+          - "helm.sh/chart={{ include "opentelemetry-kube-stack.chart" . }}"
 {{- end }}

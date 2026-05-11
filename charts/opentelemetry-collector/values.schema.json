@@ -40,6 +40,10 @@
         ""
       ]
     },
+    "apiVersion": {
+      "type": "string",
+      "description": "Override the default apiVersion for custom controllers or testing new API versions. Applies to daemonset, deployment, and statefulset modes."
+    },
     "namespaceOverride": {
       "type": "string",
       "description": "Name of the namespace to deploy the resources into."
@@ -124,6 +128,38 @@
           "properties": {
             "enabled": {
               "description": "Specifies whether the collector should collect cluster metrics.",
+              "type": "boolean"
+            },
+            "disableLeaderElection": {
+              "description": "Specifies whether the collector should use leader election extension to collect cluster metrics.",
+              "type": "boolean"
+            }
+          }
+        },
+        "annotationDiscovery": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "logs": {
+              "enabled": {
+                "description": "Specifies whether the collector should collect logs.",
+                "type": "boolean"
+              }
+            },
+            "metrics": {
+              "enabled": {
+                "description": "Specifies whether the collector should collect metrics.",
+                "type": "boolean"
+              }
+            }
+          }
+        },
+        "profiling": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {
+              "description": "Specifies whether the collector should collect profiling data.",
               "type": "boolean"
             }
           }
@@ -286,6 +322,9 @@
       }
     },
     "priorityClassName": {
+      "type": "string"
+    },
+    "runtimeClassName": {
       "type": "string"
     },
     "extraContainers": {
@@ -646,6 +685,9 @@
         }
       }
     },
+    "enableConfigChecksumAnnotation": {
+      "type": "boolean"
+    },
     "podAnnotations": {
       "type": "object"
     },
@@ -656,6 +698,9 @@
       "type": "object"
     },
     "hostNetwork": {
+      "type": "boolean"
+    },
+    "hostPID": {
       "type": "boolean"
     },
     "hostAliases": {
@@ -699,7 +744,9 @@
         "trafficDistribution": {
           "type": "string",
           "enum": [
-            "PreferClose"
+            "PreferClose",
+            "PreferSameZone",
+            "PreferSameNode"
           ]
         },
         "type": {
@@ -1042,13 +1089,44 @@
         },
         "defaultRules": {
           "type": "object",
+          "required": [
+            "enabled",
+            "additionalRuleLabels",
+            "additionalRuleAnnotations"
+          ],
           "properties": {
             "enabled": {
-              "type": "boolean"
+              "type": "boolean",
+              "default": false,
+              "examples": [
+                false
+              ]
+            },
+            "additionalRuleLabels": {
+              "type": "object",
+              "default": {},
+              "required": [],
+              "properties": {},
+              "examples": [
+                {}
+              ]
+            },
+            "additionalRuleAnnotations": {
+              "type": "object",
+              "default": {},
+              "required": [],
+              "properties": {},
+              "examples": [
+                {}
+              ]
             }
           },
-          "required": [
-            "enabled"
+          "examples": [
+            {
+              "enabled": false,
+              "additionalRuleLabels": {},
+              "additionalRuleAnnotations": {}
+            }
           ]
         },
         "extraLabels": {
@@ -1216,9 +1294,14 @@
     },
     "shareProcessNamespace": {
       "type": "boolean"
+    },
+    "terminationGracePeriodSeconds": {
+      "type": "integer",
+      "description": "Grace period in seconds for pod termination."
     }
   },
   "required": [
+    "apiVersion",
     "mode"
   ]
 }

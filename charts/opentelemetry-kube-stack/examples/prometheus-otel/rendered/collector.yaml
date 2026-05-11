@@ -6,8 +6,8 @@ metadata:
   name: example-daemon
   namespace: default
   labels:
-    helm.sh/chart: opentelemetry-kube-stack-0.9.1
-    app.kubernetes.io/version: "0.129.1"
+    helm.sh/chart: opentelemetry-kube-stack-0.14.13
+    app.kubernetes.io/version: "0.144.0"
     app.kubernetes.io/managed-by: Helm
     release: "example"    
     otel-collector-type: daemonset-example    
@@ -26,9 +26,15 @@ spec:
         send_batch_max_size: 1500
         send_batch_size: 1000
         timeout: 1s
+      resource/hostname:
+        attributes:
+        - action: insert
+          from_attribute: k8s.node.name
+          key: host.name
       resourcedetection/env:
         detectors:
         - env
+        - k8snode
         override: false
         timeout: 2s
     receivers:
@@ -48,6 +54,7 @@ spec:
           - debug
           processors:
           - resourcedetection/env
+          - resource/hostname
           - batch
           receivers:
           - otlp
@@ -57,6 +64,7 @@ spec:
           - otlp
           processors:
           - resourcedetection/env
+          - resource/hostname
           - batch
           receivers:
           - prometheus
@@ -65,6 +73,7 @@ spec:
           - debug
           processors:
           - resourcedetection/env
+          - resource/hostname
           - batch
           receivers:
           - otlp
@@ -90,6 +99,10 @@ spec:
       scrapeInterval: 30s
       serviceMonitorSelector: {}
   env:
+  - name: K8S_NODE_NAME 
+    valueFrom:
+      fieldRef:
+        fieldPath: spec.nodeName
   - name: OTEL_K8S_NODE_NAME
     valueFrom:
       fieldRef:
@@ -114,7 +127,7 @@ spec:
         apiVersion: v1
         fieldPath: status.podIP
   - name: OTEL_RESOURCE_ATTRIBUTES
-    value: "k8s.cluster.name=demo"
+    value: "k8s.pod.name=$(OTEL_K8S_POD_NAME),k8s.namespace.name=$(OTEL_K8S_NAMESPACE),k8s.node.name=$(OTEL_K8S_NODE_NAME),host.name=$(OTEL_K8S_NODE_NAME),k8s.node.ip=$(OTEL_K8S_NODE_IP),k8s.pod.ip=$(OTEL_K8S_POD_IP),k8s.cluster.name=demo"
   
   - name: ACCESS_TOKEN
     valueFrom:

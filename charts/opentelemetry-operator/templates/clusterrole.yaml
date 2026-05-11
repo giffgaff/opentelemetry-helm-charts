@@ -184,7 +184,11 @@ rules:
   - apiGroups:
       - ""
     resources:
+{{- if semverCompare ">=1.33-0" .Capabilities.KubeVersion.Version }}
+      - nodes/pods
+{{- else }}
       - nodes/proxy
+{{- end }}
     verbs:
       - get
   - apiGroups:
@@ -212,11 +216,32 @@ rules:
       - list
       - update
   - apiGroups:
+      - discovery.k8s.io
+    resources:
+      - endpointslices
+    verbs:
+      - get
+      - list
+  - apiGroups:
       - events.k8s.io
     resources:
       - events
     verbs:
+      - create
       - list
+      - patch
+      - watch
+  - apiGroups:
+      - gateway.networking.k8s.io
+    resources:
+      - httproutes
+    verbs:
+      - create
+      - delete
+      - get
+      - list
+      - patch
+      - update
       - watch
   - apiGroups:
       - monitoring.coreos.com
@@ -235,6 +260,7 @@ rules:
       - networking.k8s.io
     resources:
       - ingresses
+      - networkpolicies
     verbs:
       - create
       - delete
@@ -351,6 +377,14 @@ rules:
     - patch
     - update
   - apiGroups:
+    - opentelemetry.io
+    resources:
+    - targetallocators/finalizers
+    verbs:
+    - get
+    - patch
+    - update
+  - apiGroups:
       - cert-manager.io
     resources:
       - issuers
@@ -371,7 +405,7 @@ rules:
     verbs:
       - create
 
-{{ if .Values.kubeRBACProxy.enabled }}
+{{ if .Values.manager.metrics.secure }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -385,20 +419,5 @@ rules:
       - /metrics
     verbs:
       - get
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  labels:
-    {{- include "opentelemetry-operator.labels" . | nindent 4 }}
-    app.kubernetes.io/component: controller-manager
-  name: {{ template "opentelemetry-operator.fullname" . }}-proxy
-rules:
-  - apiGroups:
-      - authentication.k8s.io
-    resources:
-      - tokenreviews
-    verbs:
-      - create
 {{- end }}
 {{ end }}
