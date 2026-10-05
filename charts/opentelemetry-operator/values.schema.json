@@ -4,7 +4,7 @@
   "type": "object",
   "default": {},
   "title": "Root Schema",
-  "additionalProperties": false,
+  "additionalProperties": true,
   "required": [
     "admissionWebhooks",
     "clusterRole",
