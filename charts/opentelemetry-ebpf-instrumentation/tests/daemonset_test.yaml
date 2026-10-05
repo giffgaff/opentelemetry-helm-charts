@@ -1,0 +1,212 @@
+suite: daemonset
+templates:
+  - templates/daemonset.yaml
+  - templates/configmap.yaml
+tests:
+  - it: renders daemonset with default settings
+    template: templates/daemonset.yaml
+    asserts:
+      - isKind:
+          of: DaemonSet
+      - equal:
+          path: spec.template.spec.hostPID
+          value: true
+      - equal:
+          path: spec.template.spec.containers[0].ports[0].containerPort
+          value: 9090
+
+  - it: does not use host networking when both network features are disabled
+    template: templates/daemonset.yaml
+    set:
+      contextPropagation:
+        enabled: false
+    asserts:
+      - notExists:
+          path: spec.template.spec.hostNetwork
+      - notExists:
+          path: spec.template.spec.volumes[1]
+
+  - it: detects Config v2 network stats and adds unprivileged networking access
+    template: templates/daemonset.yaml
+    set:
+      privileged: false
+      contextPropagation:
+        enabled: false
+      config:
+        data:
+          extensions:
+            obi:
+              version: "2.0"
+              capture:
+                network:
+                  stats:
+                    enabled: true
+    asserts:
+      - equal:
+          path: spec.template.spec.hostNetwork
+          value: true
+      - contains:
+          path: spec.template.spec.containers[0].securityContext.capabilities.add
+          content: NET_ADMIN
+      - equal:
+          path: spec.template.spec.volumes[1].hostPath.path
+          value: /sys/fs/cgroup
+
+  - it: preserves an explicitly disabled Config v2 network preset
+    template: templates/daemonset.yaml
+    set:
+      preset: network
+      contextPropagation:
+        enabled: false
+      config:
+        data:
+          extensions:
+            obi:
+              version: "2.0"
+              capture:
+                network:
+                  capture:
+                    enabled: false
+    asserts:
+      - notExists:
+          path: spec.template.spec.hostNetwork
+      - notExists:
+          path: spec.template.spec.volumes[1]
+
+  - it: derives Config v2 internal metrics and profiling ports
+    template: templates/daemonset.yaml
+    set:
+      config:
+        data:
+          extensions:
+            obi:
+              version: "2.0"
+              daemon:
+                internal_metrics:
+                  exporter: prometheus
+                  prometheus:
+                    port: 6060
+                    path: /internal/metrics
+                profiling:
+                  port: 6061
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].ports[1].name
+          value: int-metrics
+      - equal:
+          path: spec.template.spec.containers[0].ports[1].containerPort
+          value: 6060
+      - equal:
+          path: spec.template.spec.containers[0].ports[2].name
+          value: profile
+      - equal:
+          path: spec.template.spec.containers[0].ports[2].containerPort
+          value: 6061
+
+  - it: retains Config v1 network detection
+    template: templates/daemonset.yaml
+    set:
+      contextPropagation:
+        enabled: false
+      config:
+        data:
+          network:
+            enable: true
+    asserts:
+      - equal:
+          path: spec.template.spec.hostNetwork
+          value: true
+
+  - it: uses external configmap when configured
+    template: templates/daemonset.yaml
+    set:
+      config:
+        create: false
+        name: external-config
+    asserts:
+      - equal:
+          path: spec.template.spec.volumes[0].configMap.name
+          value: external-config
+
+  - it: does not validate data when using an external configmap
+    template: templates/daemonset.yaml
+    set:
+      config:
+        create: false
+        name: external-config
+        data:
+          file_format: "unsupported"
+    asserts:
+      - equal:
+          path: spec.template.spec.volumes[0].configMap.name
+          value: external-config
+
+  - it: treats a named configmap as external when create retains its default
+    template: templates/daemonset.yaml
+    set:
+      config:
+        name: external-config
+        data:
+          file_format: "unsupported"
+    asserts:
+      - equal:
+          path: spec.template.spec.volumes[0].configMap.name
+          value: external-config
+
+  - it: applies daemonSetAnnotations to the DaemonSet
+    template: templates/daemonset.yaml
+    set:
+      daemonSetAnnotations:
+        daemonset-only: "true"
+    asserts:
+      - equal:
+          path: metadata.annotations.daemonset-only
+          value: "true"
+
+  - it: does not apply daemonSetAnnotations to the ConfigMap
+    template: templates/configmap.yaml
+    set:
+      daemonSetAnnotations:
+        daemonset-only: "true"
+    asserts:
+      - notExists:
+          path: metadata.annotations
+
+  - it: merges annotations and daemonSetAnnotations on the DaemonSet
+    template: templates/daemonset.yaml
+    set:
+      annotations:
+        shared: from-annotations
+      daemonSetAnnotations:
+        daemonset-only: "true"
+    asserts:
+      - equal:
+          path: metadata.annotations.shared
+          value: from-annotations
+      - equal:
+          path: metadata.annotations.daemonset-only
+          value: "true"
+
+  - it: prefers daemonSetAnnotations over annotations on the DaemonSet when keys overlap
+    template: templates/daemonset.yaml
+    set:
+      annotations:
+        shared: from-annotations
+      daemonSetAnnotations:
+        shared: from-daemon-set-annotations
+    asserts:
+      - equal:
+          path: metadata.annotations.shared
+          value: from-daemon-set-annotations
+
+  - it: leaves the ConfigMap with only the shared annotations value when keys overlap
+    template: templates/configmap.yaml
+    set:
+      annotations:
+        shared: from-annotations
+      daemonSetAnnotations:
+        shared: from-daemon-set-annotations
+    asserts:
+      - equal:
+          path: metadata.annotations.shared
+          value: from-annotations
