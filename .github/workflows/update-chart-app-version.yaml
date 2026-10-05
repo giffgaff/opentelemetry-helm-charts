@@ -2,6 +2,9 @@ name: Update Chart App Version
 
 on:
   workflow_call:
+    secrets:
+      OTELBOT_PRIVATE_KEY:
+        required: true
     inputs:
       chart_name:
         required: true
@@ -62,19 +65,19 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     steps:
       - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
           fetch-depth: 0
 
       - name: Setup
-        uses: ./.github/actions/setup
+        uses: $/.github/actions/setup
         with:
           create-kind-cluster: "false"
-          helm-version: "v3.14.4"
+          helm-version: "v4.0.5"
 
       - name: Update chart
         id: update
@@ -121,9 +124,9 @@ jobs:
       - name: Create OTelBot token
         if: steps.update.outputs.changed == 'true'
         id: otelbot-token
-        uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3.1.1
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
-          app-id: ${{ vars.OTELBOT_APP_ID }}
+          client-id: ${{ vars.OTELBOT_CLIENT_ID }}
           private-key: ${{ secrets.OTELBOT_PRIVATE_KEY }}
           owner: ${{ github.repository_owner }}
           repositories: ${{ github.event.repository.name }}
